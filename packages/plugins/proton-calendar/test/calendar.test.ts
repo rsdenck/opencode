@@ -35,6 +35,13 @@ DTSTART;VALUE=DATE:20260305
 SUMMARY:Company holiday
 END:VEVENT
 BEGIN:VEVENT
+UID:meet@proton.me
+DTSTART:20260311T130000Z
+DTEND:20260311T133000Z
+SUMMARY:Sync
+DESCRIPTION:Join here: https://meet.proton.me/guest?code=abc-defg-hij
+END:VEVENT
+BEGIN:VEVENT
 UID:cancelled@proton.me
 DTSTART:20260312T090000Z
 DTEND:20260312T093000Z
@@ -65,8 +72,35 @@ test("returns occurrences ordered by start time", () => {
     "2026-03-05",
     "2026-03-09T16:00:00.000Z",
     "2026-03-10T09:00:00.000Z",
+    "2026-03-11T13:00:00.000Z",
     "2026-03-23T14:00:00.000Z",
   ])
+})
+
+test("finds a Proton Meet link in the description", () => {
+  const sync = parseEvents(calendar, march).find((event) => event.uid === "meet@proton.me")
+  expect(sync?.meet).toBe("https://meet.proton.me/guest?code=abc-defg-hij")
+})
+
+test("prefers the CONFERENCE property over the description", () => {
+  const ics = `BEGIN:VCALENDAR
+VERSION:2.0
+BEGIN:VEVENT
+UID:conference@proton.me
+DTSTART:20260312T100000Z
+DTEND:20260312T103000Z
+SUMMARY:Design review
+CONFERENCE;VALUE=URI:https://meet.proton.me/guest?code=xyz
+DESCRIPTION:Backup link https://meet.proton.me/guest?code=fallback
+END:VEVENT
+END:VCALENDAR
+`
+  expect(parseEvents(ics, march)[0]?.meet).toBe("https://meet.proton.me/guest?code=xyz")
+})
+
+test("events without a meeting link report null", () => {
+  const standup = parseEvents(calendar, march).find((event) => event.uid === "single@proton.me")
+  expect(standup?.meet).toBeNull()
 })
 
 test("marks all-day events and keeps them date-only", () => {

@@ -10,6 +10,9 @@ calendar client. The two machine-readable sources are:
 
 This plugin reads either one. It cannot create, edit, or delete events.
 
+Proton Meet has no API of its own either. Meeting links live inside calendar events, so the plugin surfaces them in the
+`meet` field of each event instead of pretending to start or join calls.
+
 ## Get a source
 
 **Share link (live, recommended).** In Proton Calendar, open Settings, select the calendar, enable sharing by link, and
@@ -59,13 +62,14 @@ by default to avoid hammering the share link on every tool call.
 | `proton_calendar_events` | Events in a date range, recurring events expanded into occurrences.  |
 
 `proton_calendar_events` takes `from`, `to`, `limit`, and an optional `text` filter. It defaults to the next seven days
-and sorts by start time.
+and sorts by start time. Each event includes `meet` when the event carries a conferencing link.
 
 ```json
 { "from": "2026-11-01", "to": "2026-11-30", "text": "dentist" }
 ```
 
-Example prompt: "What is on my Proton Calendar next week, and does anything conflict with my 15:00 focus block?"
+Example prompt: "What is on my Proton Calendar next week, send me the Meet links, and does anything conflict with my
+15:00 focus block?"
 
 ## Behavior
 
@@ -74,6 +78,8 @@ Example prompt: "What is on my Proton Calendar next week, and does anything conf
 - `STATUS:CANCELLED` events are omitted.
 - Timed events use ISO 8601 UTC timestamps. All-day events keep `YYYY-MM-DD` dates, where the end date is exclusive, as
   iCalendar defines it.
+- `meet` carries the conferencing link: the RFC 7986 `CONFERENCE` property when present, otherwise the first
+  `meet.proton.me` URL found in the event's URL, location, or description.
 - Share links are credentials, so tool output reports only the host, never the full URL.
 
 ## Limitations

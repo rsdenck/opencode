@@ -19,6 +19,8 @@ export interface CalendarEvent {
   summary: string
   description: string
   location: string
+  /** Conferencing link, either the RFC 7986 CONFERENCE property or the first Proton Meet URL found in the event. */
+  meet: string | null
   start: string
   end: string
   allDay: boolean
@@ -102,6 +104,22 @@ function textProperty(event: IcalEvent, name: string) {
   return typeof value === "string" ? value : ""
 }
 
+const meetPattern = /https?:\/\/meet\.proton\.me\/[^\s"'<>)\]]+/i
+
+/**
+ * Proton Meet links ride inside the calendar event: either in the RFC 7986
+ * CONFERENCE property or as a URL in the description, location, or URL field.
+ */
+function findMeet(event: IcalEvent) {
+  const conference = event.component.getFirstPropertyValue("conference")
+  if (typeof conference === "string" && conference.length > 0) return conference
+
+  const match = ["url", "location", "description"]
+    .map((field) => textProperty(event, field).match(meetPattern))
+    .find((value) => value !== null)
+  return match ? match[0] : null
+}
+
 function toOccurrence(
   item: IcalEvent,
   start: IcalTime,
@@ -116,6 +134,7 @@ function toOccurrence(
     summary: textProperty(item, "summary"),
     description: textProperty(item, "description"),
     location: textProperty(item, "location"),
+    meet: findMeet(item),
     start: formatTime(start),
     end: formatTime(end),
     allDay: start.isDate,
