@@ -10,3 +10,6 @@ These packages are not bundled with OpenCode or loaded automatically. Do not add
 | [Proton Mail](proton-mail/README.md)         | `packages/plugins/proton-mail`     |
 | [Proton Calendar](proton-calendar/README.md) | `packages/plugins/proton-calendar` |
 | [Proton Drive](proton-drive/README.md)       | `packages/plugins/proton-drive`    |
+| [Proton Docs](proton-docs/README.md)         | `packages/plugins/proton-docs`     |
+| [Proton Sheets](proton-sheets/README.md)     | `packages/plugins/proton-sheets`   |
+| [Proton Meet](proton-meet/README.md)         | `packages/plugins/proton-meet`     |
