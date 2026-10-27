@@ -1,0 +1,41 @@
+{
+  "$schema": "https://json.schemastore.org/package.json",
+  "name": "@opencode/plugin-proton-mail",
+  "version": "2.1.4",
+  "description": "Read, search, and send Proton Mail through Proton Mail Bridge",
+  "type": "module",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/rsdenck/opencode.git",
+    "directory": "packages/plugins/proton-mail"
+  },
+  "exports": {
+    ".": "./index.ts",
+    "./server": "./index.ts"
+  },
+  "files": [
+    "index.ts",
+    "src"
+  ],
+  "scripts": {
+    "typecheck": "bun check --no-script",
+    "typecheck:tsc": "tsc --noEmit",
+    "test": "bun test"
+  },
+  "dependencies": {
+    "imapflow": "1.0.193",
+    "mailparser": "3.7.4",
+    "nodemailer": "6.10.1"
+  },
+  "peerDependencies": {
+    "@opencode/plugin": "^2.0.27 || ^0.0.0-dev"
+  },
+  "devDependencies": {
+    "@tsconfig/bun": "1.0.9",
+    "@types/bun": "1.4.3",
+    "@types/mailparser": "3.4.6",
+    "@types/nodemailer": "6.4.17",
+    "@typescript/native": "npm:typescript@7.1.0-beta"
+  }
+}

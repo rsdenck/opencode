@@ -1,0 +1,37 @@
+{
+  "$schema": "https://json.schemastore.org/package.json",
+  "name": "@opencode/plugin-proton-calendar",
+  "version": "2.1.4",
+  "description": "Read Proton Calendar events from a read-only ICS share link or an exported file",
+  "type": "module",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/rsdenck/opencode.git",
+    "directory": "packages/plugins/proton-calendar"
+  },
+  "exports": {
+    ".": "./index.ts",
+    "./server": "./index.ts"
+  },
+  "files": [
+    "index.ts",
+    "src"
+  ],
+  "scripts": {
+    "typecheck": "bun check --no-script",
+    "typecheck:tsc": "tsc --noEmit",
+    "test": "bun test"
+  },
+  "dependencies": {
+    "ical.js": "2.2.1"
+  },
+  "peerDependencies": {
+    "@opencode/plugin": "^2.0.27 || ^0.0.0-dev"
+  },
+  "devDependencies": {
+    "@tsconfig/bun": "1.0.9",
+    "@types/bun": "1.4.3",
+    "@typescript/native": "npm:typescript@7.1.0-beta"
+  }
+}
