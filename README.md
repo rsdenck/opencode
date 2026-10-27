@@ -62,6 +62,20 @@ nix run github:anomalyco/opencode  # Nix
 > [!TIP]
 > Remove versions older than 0.1.x before installing.
 
+### Cowork
+
+This fork embeds [Cowork](apps/cowork/README.md), a workspace-oriented agent workbench built on the official
+`@opencode/client` SDK: durable tasks with approval gates, execution timelines, artifacts and persisted history over
+any directory you register — including this repository itself.
+
+```bash
+cd apps/cowork
+npm ci
+npm run dev
+```
+
+See [apps/cowork/VENDORED.md](apps/cowork/VENDORED.md) for provenance and update policy.
+
 ### Desktop App (BETA)
 
 OpenCode is also available as a desktop application. Download it from [opencode.ai/download](https://opencode.ai/download).

@@ -1,0 +1,16 @@
+{
+  "name": "@cowork/workspace",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Workspace registration, path isolation and file snapshots.",
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "import": "./src/index.ts"
+    }
+  },
+  "dependencies": {
+    "@cowork/core": "*"
+  }
+}

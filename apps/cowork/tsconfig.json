@@ -1,0 +1,26 @@
+{
+  "extends": "./tsconfig.base.json",
+  "compilerOptions": {
+    "noEmit": true,
+    "baseUrl": ".",
+    "paths": {
+      "@cowork/core": ["packages/core/src/index.ts"],
+      "@cowork/storage": ["packages/storage/src/index.ts"],
+      "@cowork/workspace": ["packages/workspace/src/index.ts"],
+      "@cowork/opencode-adapter": ["packages/opencode-adapter/src/index.ts"],
+      "@cowork/task-engine": ["packages/task-engine/src/index.ts"]
+    }
+  },
+  "include": [
+    "packages/*/src/**/*.ts",
+    "packages/*/test/**/*.ts",
+    "apps/server/src/**/*.ts",
+    "apps/server/test/**/*.ts",
+    "apps/web/src/**/*.ts",
+    "apps/web/src/**/*.tsx",
+    "apps/web/vite.config.ts",
+    "vitest.config.ts",
+    "vitest.integration.config.ts"
+  ],
+  "exclude": ["node_modules", "**/dist/**"]
+}
