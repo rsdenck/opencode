@@ -1,0 +1,22 @@
+{
+  "name": "@cowork/server",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "HTTP API, SSE stream and web host for OpenCode Cowork.",
+  "main": "dist/index.js",
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "start": "node dist/index.js"
+  },
+  "dependencies": {
+    "@cowork/core": "*",
+    "@cowork/opencode-adapter": "*",
+    "@cowork/storage": "*",
+    "@cowork/task-engine": "*",
+    "@cowork/workspace": "*",
+    "@fastify/static": "^10.1.7",
+    "fastify": "^5.12.7",
+    "zod": "^4.6.7"
+  }
+}

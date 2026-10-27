@@ -1,0 +1,59 @@
+# Dependencies
+node_modules/
+.pnp/
+
+# Installer (AnythingLLM - not part of OpenCode Cowork)
+installer.sh
+
+# Runtime data (generated at runtime, not source)
+.auth-token
+*.db
+*.db-shm
+*.db-wal
+*.sqlite
+cowork-data/
+*.log
+logs/
+
+# Build output
+dist/
+build/
+*.tsbuildinfo
+coverage/
+.vite/
+
+# Environment and secrets
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+auth-token
+.secrets/
+
+# Local data
+.data/
+data/
+*.db
+*.db-shm
+*.db-wal
+*.sqlite
+*.sqlite3
+cowork-data/
+
+# Logs
+*.log
+logs/
+npm-debug.log*
+
+# Editors and OS
+.DS_Store
+.idea/
+.vscode/
+*.swp
+
+# Tool caches
+.cache/
+.turbo/
+.eslintcache
