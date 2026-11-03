@@ -58,11 +58,19 @@ export interface Command {
    */
   readonly editable?: true
   /**
-   * Runs the command from the palette, the keybind or the slash command.
+   * Runs the command from the palette, the keybind or the slash command. From the keybind, return `false`
+   * synchronously to decline the key: the event goes on to its target, as if the command had no keybind, e.g. Enter
+   * reaches the prompt. `false` from the palette or a slash command does nothing more.
    *
    * @param input - The slash command's arguments, when `slash.arguments` is set.
+   * @returns `false` to decline the key; anything else handles it.
+   *
+   * @example
+   * ```ts
+   * run: () => (ctx.screen.current()?.composer.focused() ? keepGoing() : false)
+   * ```
    */
-  run(input?: string): void | Promise<void>
+  run(input?: string): void | false | Promise<void>
 }
 
 /** The fields every `MenuItem` has, whichever menu it is in. */
@@ -383,6 +391,11 @@ export interface SettingsPage {
    * section.
    */
   readonly section?: "general"
+  /**
+   * The nav group of a page. Omit it to list the page after the app's own pages, such as Shortcuts.
+   * - `about`: below About, in its group, for pages about the app itself such as release notes.
+   */
+  readonly group?: "about"
   /** Nav label of a page; search shows it as the section of every entry, except rows placed in a host `section`. */
   readonly title: string
   /** The page's nav icon. */
@@ -606,6 +619,12 @@ export interface ComposerPillRow {
   run?(): void
 }
 
+/** What a composer pill's `menu` receives: the pill's session and a way to close the popover. Do not destructure. */
+export interface ComposerPillMenuProps extends ComposerPillProps {
+  /** Closes the popover, for example after the user picks an action in it. Does nothing once it is closed. */
+  close(): void
+}
+
 /** What a composer pill shows above one session's composer. */
 export interface ComposerPillView {
   /** The capsule's text; long text truncates. */
@@ -614,11 +633,14 @@ export interface ComposerPillView {
   readonly icon?: IconName
   /** Colors the capsule's icon. */
   readonly tone?: ComposerPillTone
-  /** Accessible name, and the heading of the menu the pill opens, when it differs from `label`. */
+  /**
+   * Accessible name, and the heading of the menu or popover the pill opens, when it differs from `label`. The heading
+   * wraps to at most three lines, then truncates.
+   */
   readonly title?: string
-  /** The menu the pill opens. Omit it for a pill that runs `run` instead. */
+  /** The menu the pill opens. Omit it for a pill that runs `run` instead. Unused when the pill has a `menu`. */
   readonly rows?: readonly ComposerPillRow[]
-  /** Runs when the user clicks a pill without `rows`. */
+  /** Runs when the user clicks a pill without `rows` or a `menu`. */
   run?(): void
 }
 
@@ -639,6 +661,16 @@ export interface ComposerPill {
    * @param input - The session and its screen. Do not destructure.
    */
   show(input: ComposerPillProps): ComposerPillView | undefined
+  /**
+   * Your content for the popover the pill opens, for a pill that needs more than `rows`, such as status text and
+   * buttons. The host owns the capsule and the popover around this content: its placement, focus, dismissal, and the
+   * heading (`title`, else `label`). When set, clicking the pill opens the popover, and the view's `rows` and `run` are
+   * unused. Renders each time the popover opens; its own reactivity updates it while open, also when another session is
+   * routed. A render that throws renders nothing and records the error.
+   *
+   * @param input - The session, its screen, and `close`. Do not destructure.
+   */
+  menu?(input: ComposerPillMenuProps): JSX.Element
 }
 
 /** The places a `Slot` renders, with the input each passes to `render`. */
@@ -653,6 +685,12 @@ export interface SlotMap {
     readonly session: MountedSession
     /** The timeline is the one on screen. */
     readonly active: boolean
+    /**
+     * The title does not fit beside the actions, even with the location collapsed. Show the compact form of what you
+     * render, without its details (for example an icon that opens them in a menu), so the title keeps the room. The
+     * header returns to false once the title fits beside your expanded content again.
+     */
+    readonly compact: boolean
   }
   /** Items in the project/location menu, after its location details. Omitted on loading headers without a screen. */
   readonly "session.location.menu": {

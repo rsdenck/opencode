@@ -698,14 +698,27 @@ interface ReferenceEditor {
 }
 ```
 
-### Generate
+### Generate (experimental)
 
-Generate text with a selected model without creating a session, invoking tools, or adding to session history.
+Generate with a selected model without creating a session, invoking tools, or adding to session history. These APIs
+may change. `ctx.generate.text` still works but is deprecated in favor of `ctx.experimental.generate.text`.
 
 ```ts
-const review = await ctx.generate.text({
+const review = await ctx.experimental.generate.text({
   model: { providerID: "anthropic", id: "claude-sonnet-5-5" },
   prompt: "Review this proposed action.",
+})
+
+const { images } = await ctx.experimental.generate.image({
+  model: { providerID: "openai", id: "gpt-image-1-mini" },
+  prompt: "A watercolor fox in the snow",
+  aspect: "16:9",
+})
+
+const { answers } = await ctx.experimental.generate.decisions({
+  model: { providerID: "opencode", id: "jev-1.13" },
+  input: [{ type: "text", text: "I was charged twice, please refund one." }],
+  questions: [{ type: "predicate", name: "refund", instructions: "Is this a refund request?" }],
 })
 ```
 
@@ -833,11 +846,11 @@ interface SessionContext {
   instructions: {
     entry: {
       list(
-        input: SessionInstructionsEntryListInput,
+        input: ExperimentalSessionInstructionsEntryListInput,
         requestOptions?: RequestOptions,
       ): Promise<readonly InstructionEntryInfo[]>
-      put(input: SessionInstructionsEntryPutInput, requestOptions?: RequestOptions): Promise<void>
-      remove(input: SessionInstructionsEntryRemoveInput, requestOptions?: RequestOptions): Promise<void>
+      put(input: ExperimentalSessionInstructionsEntryPutInput, requestOptions?: RequestOptions): Promise<void>
+      remove(input: ExperimentalSessionInstructionsEntryRemoveInput, requestOptions?: RequestOptions): Promise<void>
     }
   }
   switchAgent(input: SessionSwitchAgentInput, requestOptions?: RequestOptions): Promise<void>
@@ -850,7 +863,7 @@ interface SessionContext {
   compact(input: SessionCompactInput, requestOptions?: RequestOptions): Promise<SessionInboxCompaction>
   synthetic(input: SessionSyntheticInput, requestOptions?: RequestOptions): Promise<SessionInboxSynthetic>
   interrupt(input: SessionInterruptInput, requestOptions?: RequestOptions): Promise<{ interrupted: boolean }>
-  wait(input: SessionWaitInput, requestOptions?: RequestOptions): Promise<void>
+  wait(input: ExperimentalSessionWaitInput, requestOptions?: RequestOptions): Promise<void>
 }
 ```
 
@@ -1416,6 +1429,10 @@ await ctx.session.hook("compaction", async (event) => {
 
 Changes affect only the outgoing model call, not persisted history or configuration. A hook that should apply to
 every request must register for each kind.
+
+The `system` part that holds OpenCode's instructions also lists each source in `metadata.experimental.instructions` as
+`{ key, text }`, such as `core/date` or `core/environment`, so a hook can tell the sources apart. The list is a copy:
+editing the part's `text` does not update it. This is experimental and may change.
 
 Request overrides follow these rules:
 

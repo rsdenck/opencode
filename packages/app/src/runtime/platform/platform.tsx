@@ -17,6 +17,8 @@ type OpenAttachmentPickerOptions = {
   defaultPath?: string
 }
 
+type OpenFilePathPickerOptions = { title?: string; multiple?: boolean; extensions?: string[] }
+
 type SaveFilePickerOptions = { title?: string; defaultPath?: string }
 
 type PlatformName = "web" | "desktop"
@@ -64,6 +66,9 @@ type PlatformBase = {
     onFile: (file: File) => Promise<Value>,
   ): Promise<void>
 
+  /** Open a native file picker and return the selected paths without reading the files (desktop only) */
+  openFilePathPickerDialog?(opts: OpenFilePathPickerOptions): Promise<string[] | null>
+
   /** Resolve the native source path for a desktop File. */
   getPathForFile?(file: File): string
 
@@ -102,6 +107,12 @@ type PlatformBase = {
 
   /** Allow native pinch/Ctrl-scroll zoom gestures (desktop only) */
   setPinchZoomEnabled?(enabled: boolean): Promise<void> | void
+
+  /** Get whether the native spellchecker underlines misspelled words (desktop only) */
+  getSpellcheckEnabled?(): Promise<boolean>
+
+  /** Turn the native spellchecker on or off (desktop only) */
+  setSpellcheckEnabled?(enabled: boolean): Promise<void>
 
   /** Run a desktop-only menu action from the app chrome */
   runDesktopMenuAction?(action: DesktopMenuAction): Promise<void> | void

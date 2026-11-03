@@ -1,4 +1,4 @@
-import type { Page } from "@playwright/test"
+import type { Locator, Page } from "@playwright/test"
 import { expect, sourceURL, story } from "../../stories/playwright/story"
 
 const png = Buffer.from(
@@ -318,8 +318,9 @@ story("shows a stable GitHub mark without changing link text or other sites", as
   await expect(github).toHaveAttribute("href", "https://github.com/anomalyco/opencode/pull/540")
   await expect(github).toHaveText("#540")
   const mark = github.locator(".markdown-link-favicon[data-github]")
-  expect(await mark.evaluate((icon) => getComputedStyle(icon, "::before").width)).toBe("14px")
-  expect(await mark.evaluate((icon) => getComputedStyle(icon, "::before").maskImage)).toContain("data:image/svg+xml")
+  const glyph = mark.locator(".markdown-link-favicon-glyph")
+  expect(await glyph.evaluate((icon) => getComputedStyle(icon).width)).toBe("14px")
+  expect(await glyph.evaluate((icon) => getComputedStyle(icon).maskImage)).toContain("data:image/svg+xml")
   await expect(mark.locator("img")).toHaveCount(0)
   await expect(markdown.getByRole("link", { name: "GitHub" }).locator(".markdown-link-favicon[data-github]")).toHaveCount(
     1,
@@ -360,8 +361,10 @@ story("keeps favicon space stable across loading and failure without fetching pr
   await expect(markdown).toHaveAttribute("data-markdown-ready", "")
   const docs = markdown.getByRole("link", { name: "docs" })
   const image = docs.locator(".markdown-link-favicon img")
+  const globe = (link: Locator) => link.locator(".markdown-link-favicon-glyph")
   await expect.poll(() => requested.some((url) => url.includes("developer.mozilla.org"))).toBe(true)
   await expect(image).toHaveCSS("opacity", "0")
+  await expect(globe(docs)).toBeVisible()
   expect((await docs.locator(".markdown-link-favicon").boundingBox())?.width).toBe(14)
   // A late web font swap also changes the link width; measure after fonts settle.
   await page.evaluate(() => document.fonts.ready.then(() => undefined))
@@ -369,6 +372,7 @@ story("keeps favicon space stable across loading and failure without fetching pr
   release()
   await expect(image).toHaveAttribute("data-loaded", "")
   await expect(image).toHaveCSS("opacity", "1")
+  await expect(globe(docs)).toHaveCount(0)
   await expect(image).not.toHaveAttribute("role", "button")
   expect(await image.evaluate((favicon) => favicon.onclick)).toBeNull()
   expect(await docs.evaluate((link) => link.getBoundingClientRect().width)).toBe(width)
@@ -384,6 +388,7 @@ story("keeps favicon space stable across loading and failure without fetching pr
   await expect(
     markdown.getByRole("link", { name: "missing" }).locator(".markdown-link-favicon img"),
   ).not.toHaveAttribute("data-loaded", "")
+  await expect(globe(markdown.getByRole("link", { name: "missing" }))).toBeVisible()
   await expect(markdown.getByRole("link", { name: "private" }).locator(".markdown-link-favicon img")).toHaveCount(0)
   await expect(markdown.getByRole("link", { name: "GitHub" }).locator(".markdown-link-favicon img")).toHaveCount(0)
   expect(requested).toHaveLength(2)
@@ -436,6 +441,39 @@ story("keeps link icons on the same line as the start of their label", async ({ 
 
   expect(result.widths).toEqual([])
   expect(result.long).toBeGreaterThan(1)
+})
+
+story("scrolls fragment links to their heading inside the document's scroller", async ({ page }) => {
+  await page.evaluate(async (fixture) => {
+    const { mountMarkdown } = await import(fixture)
+    const filler = Array.from({ length: 40 }, (_, index) => `Paragraph ${index}`).join("\n\n")
+    await mountMarkdown({
+      text: `See [Host services](#host-services) and [the second usage](#usage-1).\n\n## Usage\n\n${filler}\n\n## Host services\n\n${filler}\n\n## Usage\n\n${filler}`,
+    })
+    const host = document.querySelector<HTMLElement>('[data-testid="markdown-fixture"]')!
+    host.style.height = "240px"
+    host.style.overflowY = "auto"
+  }, fixture)
+  const host = page.getByTestId("markdown-fixture")
+  const markdown = host.locator('[data-component="markdown"]')
+  await expect(markdown).toHaveAttribute("data-markdown-ready", "")
+  const url = page.url()
+
+  const offset = (index: number) =>
+    host.evaluate(
+      (host, index) =>
+        host.querySelectorAll("h2")[index]!.getBoundingClientRect().top - host.getBoundingClientRect().top,
+      index,
+    )
+
+  await expect(markdown.getByRole("link", { name: "Host services" })).not.toHaveAttribute("target", "_blank")
+  await markdown.getByRole("link", { name: "Host services" }).click()
+  await expect.poll(() => offset(1)).toBeCloseTo(0, 0)
+
+  await host.evaluate((host) => host.scrollTo({ top: 0 }))
+  await markdown.getByRole("link", { name: "the second usage" }).click()
+  await expect.poll(() => offset(2)).toBeCloseTo(0, 0)
+  expect(page.url()).toBe(url)
 })
 
 async function resolvedColor(page: Page, token: string) {
@@ -730,6 +768,21 @@ story("replaces completed DOM before live rendering and retains streamed code co
   await expect(markdown).toHaveCount(0)
 })
 
+story("relabels streamed code copy actions when the language changes", async ({ page }) => {
+  await page.evaluate(async (fixture) => {
+    const { mountMarkdown } = await import(fixture)
+    await mountMarkdown({ text: "```sh\necho hello\n", streaming: true })
+  }, fixture)
+  const harness = page.getByTestId("markdown-fixture")
+  const markdown = harness.locator('[data-component="markdown"]')
+  await expect(markdown.getByRole("button", { name: "Copy" })).toHaveCount(1)
+  await harness.getByLabel("Markdown text").fill("```sh\necho hello\n```\n\nStreaming continues")
+  await expect(markdown.locator("p")).toHaveText("Streaming continues")
+  await harness.getByLabel("German").check()
+  await expect(markdown.getByRole("button", { name: "Kopieren" })).toHaveCount(1)
+  await expect(markdown.getByRole("button", { name: "Copy" })).toHaveCount(0)
+})
+
 story("highlights streamed code across comment and string boundaries", async ({ page }) => {
   await page.evaluate(async (fixture) => {
     const { mountMarkdown } = await import(fixture)
@@ -982,4 +1035,64 @@ story("loads file URLs and Windows paths, and leaves unreadable images as alt te
   await expect(harness.getByRole("button", { name: "Unavailable" })).not.toHaveAttribute("src")
   await harness.getByLabel("Markdown text").fill("Still usable")
   await expect(harness.locator('[data-component="markdown"]')).toHaveText("Still usable")
+})
+
+async function copySelection(page: Page, select: "markdown" | "harness") {
+  await page.evaluate((select) => {
+    const harness = document.querySelector('[data-testid="markdown-fixture"]')!
+    const range = document.createRange()
+    range.selectNodeContents(select === "markdown" ? harness.querySelector('[data-component="markdown"]')! : harness)
+    getSelection()!.removeAllRanges()
+    getSelection()!.addRange(range)
+    document.addEventListener(
+      "copy",
+      (event) => {
+        document.body.dataset.copiedText = event.clipboardData?.getData("text/plain")
+        document.body.dataset.copiedHtml = event.clipboardData?.getData("text/html")
+      },
+      { once: true },
+    )
+  }, select)
+  await page.keyboard.press("ControlOrMeta+C")
+
+  return page.evaluate(() => ({ text: document.body.dataset.copiedText, html: document.body.dataset.copiedHtml }))
+}
+
+story("copies selected Markdown as semantic HTML without theme or highlight colours", async ({ page }) => {
+  await page.evaluate(async (fixture) => {
+    document.body.style.color = "rgb(237, 237, 237)"
+    const { mountMarkdown } = await import(fixture)
+    await mountMarkdown({
+      text: "## Answer\n\nSome **bold** and [docs](https://opencode.ai/docs).\n\n- one\n- two\n\n```ts\nconst value = 42\n```",
+    })
+  }, fixture)
+  const harness = page.getByTestId("markdown-fixture")
+  await expect(harness.locator('[data-component="markdown"]')).toHaveAttribute("data-markdown-ready", "")
+  await expect(harness.locator("pre code span[style]").first()).toBeAttached()
+
+  const copied = await copySelection(page, "markdown")
+
+  expect(copied.text).toContain("Some bold and docs.")
+  expect(copied.text).toContain("const value = 42")
+  expect(copied.html).toContain("<h2>Answer</h2>")
+  expect(copied.html).toContain('<p>Some <strong>bold</strong> and <a href="https://opencode.ai/docs">docs</a>.</p>')
+  expect(copied.html).toContain("<li>one</li>")
+  expect(copied.html).toMatch(/<pre><code>(<span>[^<]*<\/span>)+<\/code><\/pre>/)
+  expect(copied.html).not.toMatch(/style=|class=|<button|<svg/)
+})
+
+story("keeps the browser copy for selections that leave the Markdown", async ({ page }) => {
+  await page.evaluate(async (fixture) => {
+    const { mountMarkdown } = await import(fixture)
+    await mountMarkdown({ text: "Some **bold** text" })
+  }, fixture)
+  await expect(page.getByTestId("markdown-fixture").locator('[data-component="markdown"]')).toHaveAttribute(
+    "data-markdown-ready",
+    "",
+  )
+
+  const copied = await copySelection(page, "harness")
+
+  expect(copied.html).toBe("")
+  expect(copied.text).toBe("")
 })
