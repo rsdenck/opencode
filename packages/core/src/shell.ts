@@ -33,6 +33,11 @@ const EXITED_LIMIT = 25
 export const RETENTION = Duration.days(7)
 export const DIRECTORY = "shell"
 
+// How long a recorded outcome may wait for the process to exit before the watchdog publishes
+// it anyway. A child stuck in uninterruptible sleep never runs its signal handlers, so even
+// SIGKILL stays pending; this bounds the wait past the spawner's force-kill escalation.
+const KILL_GRACE = Duration.seconds(5)
+
 type Info = Shell.Info
 type CreateInput = Shell.CreateInput & {
   shell?: string
@@ -392,34 +397,25 @@ const layer = () =>
 
               yield* command.timeout(invocation.timeout)
 
-              // The process exits even after a timeout kill, so this fiber always publishes the outcome.
-              runFork(
+              // Both the exit observer and the no-exit watchdog publish through this gate;
+              // resolving `done` decides the winner so the terminal status lands exactly once.
+              const publish = (outcome: Ended) =>
                 Effect.gen(function* () {
-                  yield* handle.exitCode.pipe(
-                    Effect.flatMap((code) => end({ status: "exited", exit: code })),
-                    Effect.catch((error) =>
-                      end({
-                        status: "exited",
-                        signal:
-                          error.cause instanceof CrossSpawnSpawner.KilledBySignal ? error.cause.signal : undefined,
-                      }),
-                    ),
-                  )
-                  const outcome = yield* Deferred.await(ended)
-                  // Report the terminal status only once captured output is complete, so a reader that
-                  // sees it never reads a partial file.
-                  yield* outputDone.await
                   // A removed command already failed its waiters and published its exit and deletion.
                   if (commands.get(id) !== command) return
-                  command.info = produce(command.info, (draft) => {
+                  const final = produce(command.info, (draft) => {
                     draft.status = outcome.status
                     if (outcome.exit !== undefined) draft.exit = outcome.exit
                     if (outcome.signal !== undefined) draft.signal = outcome.signal
                     draft.time.completed = outcome.completed
                   })
+                  // Publish the snapshot before resolving waiters, so one that wakes never sees the
+                  // stale running Info. Both publishers compute the same outcome from `ended`, so a
+                  // redundant assignment is idempotent.
+                  command.info = final
                   // Resolve waiters before retention eviction, so an evicted command still reports its
                   // terminal Info rather than the removal NotFoundError.
-                  yield* Deferred.succeed(command.done, command.info)
+                  if (!(yield* Deferred.succeed(command.done, final))) return
                   yield* bus.publish(Shell.Event.Exited, {
                     id,
                     ...(outcome.exit !== undefined ? { exit: outcome.exit } : {}),
@@ -436,6 +432,38 @@ const layer = () =>
                   command.timeout = undefined
                   command.timeoutFiber = undefined
                   if (timeoutFiber) yield* Fiber.interrupt(timeoutFiber)
+                })
+
+              // The process exits even after a timeout kill, so this fiber normally publishes the outcome.
+              runFork(
+                Effect.gen(function* () {
+                  yield* handle.exitCode.pipe(
+                    Effect.flatMap((code) => end({ status: "exited", exit: code })),
+                    Effect.catch((error) =>
+                      end({
+                        status: "exited",
+                        signal:
+                          error.cause instanceof CrossSpawnSpawner.KilledBySignal ? error.cause.signal : undefined,
+                      }),
+                    ),
+                  )
+                  const outcome = yield* Deferred.await(ended)
+                  // Report the terminal status only once captured output is complete, so a reader that
+                  // sees it never reads a partial file.
+                  yield* outputDone.await
+                  yield* publish(outcome)
+                }),
+              )
+
+              // A child stuck in uninterruptible sleep never runs its signal handlers, so even SIGKILL
+              // stays pending, `exitCode` never resolves, and the observer fiber hangs with the outcome
+              // already recorded. Publish it once the grace window passes so the tool call still reports
+              // how the command ended, without waiting for a process that may never die.
+              runFork(
+                Effect.gen(function* () {
+                  const outcome = yield* Deferred.await(ended)
+                  yield* Effect.raceFirst(Effect.asVoid(outputDone.await), Effect.sleep(KILL_GRACE))
+                  yield* publish(outcome)
                 }),
               )
 
